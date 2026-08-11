@@ -1,36 +1,78 @@
+```html
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Puter App</title>
 </head>
 
 <body>
+    <h1>My Puter App</h1>
 
-    <input id="message" placeholder="Ask something...">
-    <button onclick="askAI()">Ask AI</button>
+    <input
+        id="message"
+        type="text"
+        placeholder="Ask something..."
+    >
+
+    <button id="askButton">Ask AI</button>
 
     <pre id="answer"></pre>
 
     <script>
+        const WORKER_URL = "https://YOUR-WORKER-NAME.puter.work/api/ai";
+
+        const messageInput = document.getElementById("message");
+        const askButton = document.getElementById("askButton");
+        const answer = document.getElementById("answer");
+
         async function askAI() {
-            const message = document.getElementById("message").value;
+            const message = messageInput.value.trim();
 
-            const response = await fetch("/ai", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    message: message
-                })
-            });
+            if (!message) {
+                answer.textContent = "Please enter a message.";
+                return;
+            }
 
-            const data = await response.json();
+            askButton.disabled = true;
+            answer.textContent = "Thinking...";
 
-            document.getElementById("answer").textContent =
-                data.message?.content?.[0]?.text || JSON.stringify(data);
+            try {
+                const response = await fetch(WORKER_URL, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ message })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "AI request failed.");
+                }
+
+                answer.textContent =
+                    data.message?.content?.[0]?.text ||
+                    JSON.stringify(data, null, 2);
+
+            } catch (error) {
+                console.error(error);
+                answer.textContent = "Error: " + error.message;
+            } finally {
+                askButton.disabled = false;
+            }
         }
-    </script>
 
+        askButton.addEventListener("click", askAI);
+
+        messageInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                askAI();
+            }
+        });
+    </script>
 </body>
 </html>
+```

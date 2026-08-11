@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>My Puter App</title>
+</head>
+
+<body>
+
+    <input id="message" placeholder="Ask something...">
+    <button onclick="askAI()">Ask AI</button>
+
+    <pre id="answer"></pre>
+
+    <script>
+        async function askAI() {
+            const message = document.getElementById("message").value;
+
+            const response = await fetch("/ai", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    message: message
+                })
+            });
+
+            const data = await response.json();
+
+            document.getElementById("answer").textContent =
+                data.message?.content?.[0]?.text || JSON.stringify(data);
+        }
+    </script>
+
+</body>
+</html>

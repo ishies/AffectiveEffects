@@ -300,10 +300,16 @@
             if (!response.ok) {
                 throw new Error(data.error || "AI request failed.");
             }
-            if (data.meta) {
-                // Forward condition/PA/allocation data to the parent Qualtrics page,
-                // which listens for this and saves it as embedded data on the response.
-                window.parent.postMessage({ type: "advisorSessionMeta", meta: data.meta }, "*");
+           if (data.meta) {
+                console.log("META RECEIVED FROM WORKER:", data.meta);
+
+                window.parent.postMessage(
+                    {
+                        type: "advisorSessionMeta",
+                        meta: data.meta
+                    },
+                    "*"
+                );
             }
             return data?.message?.content?.[0]?.text || JSON.stringify(data, null, 2);
         }

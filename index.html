@@ -238,6 +238,14 @@
         const initialSavingsInput = document.getElementById("initialSavings");
         const initialEntertainmentInput = document.getElementById("initialEntertainment");
 
+        function parseAmount(raw) {
+            if (raw == null) return NaN;
+            // Strip anything that isn't a digit, minus sign, or decimal point
+            // (handles "3,150", "$3,150", "3150 ", etc.)
+            const cleaned = raw.replace(/[^0-9.-]/g, "");
+            return cleaned === "" ? NaN : Number(cleaned);
+        }
+
         const params = new URLSearchParams(window.location.search);
         earnedAmountInput.value = params.get("earnedAmount") ?? "";
         initialSavingsInput.value = params.get("initialSavings") ?? "";
@@ -301,16 +309,19 @@
         }
 
         async function startConversation() {
-            const earnedAmount = Number(earnedAmountInput.value);
-            const initialSavings = Number(initialSavingsInput.value);
-            const initialEntertainment = Number(initialEntertainmentInput.value);
+            const earnedAmount = parseAmount(earnedAmountInput.value);
+            const initialSavings = parseAmount(initialSavingsInput.value);
+            const initialEntertainment = parseAmount(initialEntertainmentInput.value);
 
-            if (
-                Number.isNaN(earnedAmount) ||
-                Number.isNaN(initialSavings) ||
-                Number.isNaN(initialEntertainment)
-            ) {
-                loadingScreen.innerHTML = "Missing required session data. Please reload the survey page.";
+            const missing = [];
+            if (Number.isNaN(earnedAmount)) missing.push(`earnedAmount ("${earnedAmountInput.value}")`);
+            if (Number.isNaN(initialSavings)) missing.push(`initialSavings ("${initialSavingsInput.value}")`);
+            if (Number.isNaN(initialEntertainment)) missing.push(`initialEntertainment ("${initialEntertainmentInput.value}")`);
+
+            if (missing.length > 0) {
+                loadingScreen.innerHTML =
+                    "Missing or invalid session data: " + missing.join(", ") +
+                    ". Please reload the survey page, or contact the study administrator if this persists.";
                 return;
             }
 
@@ -346,9 +357,9 @@
             try {
                 const text = await callWorker({
                     message,
-                    earnedAmount: Number(earnedAmountInput.value),
-                    initialSavings: Number(initialSavingsInput.value),
-                    initialEntertainment: Number(initialEntertainmentInput.value),
+                    earnedAmount: parseAmount(earnedAmountInput.value),
+                    initialSavings: parseAmount(initialSavingsInput.value),
+                    initialEntertainment: parseAmount(initialEntertainmentInput.value),
                     sessionId
                 });
                 status.parentElement.remove();

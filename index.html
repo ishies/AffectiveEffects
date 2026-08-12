@@ -4,58 +4,77 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Puter App</title>
+    <style>
+        body { font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 16px; }
+        #chat { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+        .bubble { padding: 10px 14px; border-radius: 10px; max-width: 85%; white-space: pre-wrap; line-height: 1.4; }
+        .bubble.assistant { background: #f1f1f1; align-self: flex-start; }
+        .bubble.user { background: #d6e8ff; align-self: flex-end; }
+        .bubble.status { background: none; color: #888; font-style: italic; align-self: center; }
+        #inputRow { display: flex; gap: 8px; }
+        #message { flex: 1; padding: 8px; }
+    </style>
 </head>
 
 <body>
     <h1>My Puter App</h1>
 
-    <!-- These are populated automatically from the iframe's URL query params
-         (set by Qualtrics piped text) — not meant to be edited by the participant. -->
+    <!-- Populated from the iframe's URL query params (Qualtrics piped text) -->
     <input id="earnedAmount" type="hidden">
     <input id="initialSavings" type="hidden">
     <input id="initialEntertainment" type="hidden">
 
-    <input
-        id="message"
-        type="text"
-        placeholder="Ask something..."
-    >
+    <div id="chat"></div>
 
-    <button id="askButton">Ask AI</button>
-
-    <pre id="answer"></pre>
+    <div id="inputRow">
+        <input id="message" type="text" placeholder="Type your reply..." disabled>
+        <button id="askButton" disabled>Send</button>
+    </div>
 
     <script>
         const WORKER_URL = "https://bright-table-566379.puter.work/api/ai";
-
-        // One session ID per page load, kept for the whole conversation
-        // so the worker resolves the RecChange condition and PA Score
-        // once and reuses them for all follow-up messages.
         const sessionId = crypto.randomUUID();
 
+        const chat = document.getElementById("chat");
         const messageInput = document.getElementById("message");
         const askButton = document.getElementById("askButton");
-        const answer = document.getElementById("answer");
 
         const earnedAmountInput = document.getElementById("earnedAmount");
         const initialSavingsInput = document.getElementById("initialSavings");
         const initialEntertainmentInput = document.getElementById("initialEntertainment");
 
-        // Pull values passed in from Qualtrics via the iframe's URL query params
-        // e.g. https://your-subdomain.puter.site/?earnedAmount=2000&initialSavings=300&initialEntertainment=150
         const params = new URLSearchParams(window.location.search);
         earnedAmountInput.value = params.get("earnedAmount") ?? "";
         initialSavingsInput.value = params.get("initialSavings") ?? "";
         initialEntertainmentInput.value = params.get("initialEntertainment") ?? "";
 
-        async function askAI() {
-            const message = messageInput.value.trim();
+        function addBubble(text, role) {
+            const div = document.createElement("div");
+            div.className = "bubble " + role;
+            div.textContent = text;
+            chat.appendChild(div);
+            return div;
+        }
 
-            if (!message) {
-                answer.textContent = "Please enter a message.";
-                return;
+        function setInputEnabled(enabled) {
+            messageInput.disabled = !enabled;
+            askButton.disabled = !enabled;
+        }
+
+        async function callWorker(payload) {
+            const response = await fetch(WORKER_URL, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.error || "AI request failed.");
             }
+            return data?.message?.content?.[0]?.text || JSON.stringify(data, null, 2);
+        }
 
+        async function startConversation() {
             const earnedAmount = Number(earnedAmountInput.value);
             const initialSavings = Number(initialSavingsInput.value);
             const initialEntertainment = Number(initialEntertainmentInput.value);
@@ -65,53 +84,65 @@
                 Number.isNaN(initialSavings) ||
                 Number.isNaN(initialEntertainment)
             ) {
-                answer.textContent = "Missing required session data. Please reload the survey page.";
+                addBubble("Missing required session data. Please reload the survey page.", "status");
                 return;
             }
 
-            askButton.disabled = true;
-            answer.textContent = "Thinking...";
+            const statusBubble = addBubble("Thinking...", "status");
 
             try {
-                const response = await fetch(WORKER_URL, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        message,
-                        earnedAmount,
-                        initialSavings,
-                        initialEntertainment,
-                        sessionId
-                    })
+                const text = await callWorker({
+                    start: true,
+                    earnedAmount,
+                    initialSavings,
+                    initialEntertainment,
+                    sessionId
                 });
-
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.error || "AI request failed.");
-                }
-
-                answer.textContent =
-                    data.message?.content?.[0]?.text ||
-                    JSON.stringify(data, null, 2);
-
+                statusBubble.remove();
+                addBubble(text, "assistant");
+                setInputEnabled(true);
+                messageInput.focus();
             } catch (error) {
                 console.error(error);
-                answer.textContent = "Error: " + error.message;
-            } finally {
-                askButton.disabled = false;
+                statusBubble.textContent = "Error: " + error.message;
             }
         }
 
-        askButton.addEventListener("click", askAI);
+        async function sendReply() {
+            const message = messageInput.value.trim();
+            if (!message) return;
 
-        messageInput.addEventListener("keydown", (event) => {
-            if (event.key === "Enter") {
-                askAI();
+            addBubble(message, "user");
+            messageInput.value = "";
+            setInputEnabled(false);
+
+            const statusBubble = addBubble("Thinking...", "status");
+
+            try {
+                const text = await callWorker({
+                    message,
+                    earnedAmount: Number(earnedAmountInput.value),
+                    initialSavings: Number(initialSavingsInput.value),
+                    initialEntertainment: Number(initialEntertainmentInput.value),
+                    sessionId
+                });
+                statusBubble.remove();
+                addBubble(text, "assistant");
+            } catch (error) {
+                console.error(error);
+                statusBubble.textContent = "Error: " + error.message;
+            } finally {
+                setInputEnabled(true);
+                messageInput.focus();
             }
+        }
+
+        askButton.addEventListener("click", sendReply);
+        messageInput.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") sendReply();
         });
+
+        startConversation();
     </script>
 </body>
 </html>

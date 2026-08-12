@@ -9,22 +9,11 @@
 <body>
     <h1>My Puter App</h1>
 
-    <div>
-        <label for="earnedAmount">Earned Amount ($)</label><br>
-        <input id="earnedAmount" type="number" value="2000">
-    </div>
-
-    <div>
-        <label for="initialSavings">Initial Savings Amount ($)</label><br>
-        <input id="initialSavings" type="number" value="300">
-    </div>
-
-    <div>
-        <label for="initialEntertainment">Initial Entertainment Amount ($)</label><br>
-        <input id="initialEntertainment" type="number" value="150">
-    </div>
-
-    <hr>
+    <!-- These are populated automatically from the iframe's URL query params
+         (set by Qualtrics piped text) — not meant to be edited by the participant. -->
+    <input id="earnedAmount" type="hidden">
+    <input id="initialSavings" type="hidden">
+    <input id="initialEntertainment" type="hidden">
 
     <input
         id="message"
@@ -52,6 +41,13 @@
         const initialSavingsInput = document.getElementById("initialSavings");
         const initialEntertainmentInput = document.getElementById("initialEntertainment");
 
+        // Pull values passed in from Qualtrics via the iframe's URL query params
+        // e.g. https://your-subdomain.puter.site/?earnedAmount=2000&initialSavings=300&initialEntertainment=150
+        const params = new URLSearchParams(window.location.search);
+        earnedAmountInput.value = params.get("earnedAmount") ?? "";
+        initialSavingsInput.value = params.get("initialSavings") ?? "";
+        initialEntertainmentInput.value = params.get("initialEntertainment") ?? "";
+
         async function askAI() {
             const message = messageInput.value.trim();
 
@@ -69,7 +65,7 @@
                 Number.isNaN(initialSavings) ||
                 Number.isNaN(initialEntertainment)
             ) {
-                answer.textContent = "Please enter valid numbers for all amount fields.";
+                answer.textContent = "Missing required session data. Please reload the survey page.";
                 return;
             }
 

@@ -1,4 +1,3 @@
-```html
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -9,6 +8,23 @@
 
 <body>
     <h1>My Puter App</h1>
+
+    <div>
+        <label for="earnedAmount">Earned Amount ($)</label><br>
+        <input id="earnedAmount" type="number" value="2000">
+    </div>
+
+    <div>
+        <label for="initialSavings">Initial Savings Amount ($)</label><br>
+        <input id="initialSavings" type="number" value="300">
+    </div>
+
+    <div>
+        <label for="initialEntertainment">Initial Entertainment Amount ($)</label><br>
+        <input id="initialEntertainment" type="number" value="150">
+    </div>
+
+    <hr>
 
     <input
         id="message"
@@ -23,15 +39,37 @@
     <script>
         const WORKER_URL = "https://bright-table-566379.puter.work/api/ai";
 
+        // One session ID per page load, kept for the whole conversation
+        // so the worker resolves the RecChange condition and PA Score
+        // once and reuses them for all follow-up messages.
+        const sessionId = crypto.randomUUID();
+
         const messageInput = document.getElementById("message");
         const askButton = document.getElementById("askButton");
         const answer = document.getElementById("answer");
+
+        const earnedAmountInput = document.getElementById("earnedAmount");
+        const initialSavingsInput = document.getElementById("initialSavings");
+        const initialEntertainmentInput = document.getElementById("initialEntertainment");
 
         async function askAI() {
             const message = messageInput.value.trim();
 
             if (!message) {
                 answer.textContent = "Please enter a message.";
+                return;
+            }
+
+            const earnedAmount = Number(earnedAmountInput.value);
+            const initialSavings = Number(initialSavingsInput.value);
+            const initialEntertainment = Number(initialEntertainmentInput.value);
+
+            if (
+                Number.isNaN(earnedAmount) ||
+                Number.isNaN(initialSavings) ||
+                Number.isNaN(initialEntertainment)
+            ) {
+                answer.textContent = "Please enter valid numbers for all amount fields.";
                 return;
             }
 
@@ -44,7 +82,13 @@
                     headers: {
                         "Content-Type": "application/json"
                     },
-                    body: JSON.stringify({ message })
+                    body: JSON.stringify({
+                        message,
+                        earnedAmount,
+                        initialSavings,
+                        initialEntertainment,
+                        sessionId
+                    })
                 });
 
                 const data = await response.json();
@@ -75,4 +119,3 @@
     </script>
 </body>
 </html>
-```
